@@ -1,0 +1,105 @@
+---
+title: "Set Up Data"
+format: html
+editor: visual
+---
+
+## Load packages
+
+```{r}
+library(tidyverse) 
+library(here) # paths start in project folder
+library(coralchlo) # chlorophyll calculations
+source(here("scripts/helper_functions.R")) # some helper functions to deal with sample IDs
+```
+
+## During Bleaching
+
+See [here](https://andieich.github.io/coral_chlorophyll_symcounts/6_calculations.html) for a description of functions in the `coralchlo` package.
+
+Read Metadata and calculate area:
+
+```{r}
+metadata_during <- "https://docs.google.com/spreadsheets/d/1dz3UfktD6Cn7DLeUiu25SIUDfs7bGDdjaTm1IzBd47Y/edit?gid=2109635402#gid=2109635402"
+
+dat_overview_during <- read_metadata(metadata_during)
+
+# remove samples measured twice
+dat_overview_during <- dat_overview_during %>% 
+  filter(!sample_id %in% c("3TSAL109P", "3TSAL182P", "3ESAL191P"))
+
+```
+
+Calculate chlorophyll concentrations and normalize per area:
+
+```{r}
+dat_chl_during <- normalise_chl_per_area(dat_overview_during,
+                                    path_to_biotekfolder = "PhD/coral_physiology/charlotte/photometer_files/during_bleaching", 
+                                    is_googledrive = T)
+```
+
+Normalize counts per surface area:
+
+```{r}
+dat_counts_during <- normalise_counts_per_area(dat_overview_during)
+```
+
+The sample code had to be changed due to the high mortality. Update to new format:
+
+```{r}
+# Chlorophyll
+dat_chl_during <- dat_chl_during %>% 
+  mutate(sample_id = ifelse(nchar(sample_id) == 8, 
+                            paste0(substr(sample_id, 1, 5),
+                                   0,
+                                   substr(sample_id, 6, 8)),
+                            sample_id))
+
+# Counts
+dat_counts_during <- dat_counts_during %>% 
+  mutate(sample_id = ifelse(nchar(sample_id) == 8, 
+                            paste0(substr(sample_id, 1, 5),
+                                   0,
+                                   substr(sample_id, 6, 8)),
+                            sample_id))
+```
+
+Add sample information from sample ID
+
+```{r}
+dat_chl_during <- dat_chl_during %>% 
+  get_info()
+
+dat_counts_during <- dat_counts_during %>% 
+  get_info()
+```
+
+Filter *Acropora* shallow
+
+```{r}
+dat_chl_during <- dat_chl_during %>% 
+  filter(spec == "A. hya", depth == "5 m")
+
+dat_counts_during <- dat_counts_during %>% 
+  filter(spec == "A. hya", depth == "5 m")
+```
+
+Overview number of samples
+
+```{r}
+dat_chl_during %>% 
+  # no duplicates (from replicate chl measurements)
+  filter(!duplicated(sample_id)) %>% 
+  group_by(site, size) %>% 
+  summarise(n = n())
+```
+
+No juveniles measured during t3
+
+```{r}
+write.csv(dat_chl_during, 
+          here("data/dat_chl_during"))
+
+write.csv(dat_counts_during, 
+          here("data/dat_counts_during"))
+```
