@@ -99,10 +99,7 @@ Graph:chlorophyll
 
 ```{r}
 
-col_size <- c("Adult" = "#D16103",
-              "Juvenile" = "#293352")
-
-dat_counts_after %>% 
+plot_symcount_after <- dat_counts_after %>% 
   ggplot(aes(x = site, col = size,))+
   geom_point(aes( y = count_per_cm2), 
              position = position_jitterdodge(jitter.width = .2, 
@@ -130,5 +127,30 @@ dat_counts_after %>%
   scale_colour_manual(values = col_size, name = "Size")+
   theme_minimal()+
   theme(plot.title = element_text(hjust = 0.5))
+plot_symcount_after
+```
 
+Chlorophyll per symbiont
+
+```{r}
+
+dat_chl_after_persample <- dat_chl_after %>% 
+  group_by(sample_id) %>% 
+  summarise(chl_tot_per_cm2 = mean(chl_tot_per_cm2))
+  
+
+dat_counts_after_persample <- dat_counts_after %>% 
+  group_by(sample_id) %>% 
+  summarise(count_per_cm2 = mean(count_per_cm2))
+
+
+#combine
+
+dat_chl_count_after <- left_join(dat_chl_after_persample,
+                                 dat_counts_after_persample,
+                                 by = "sample_id")
+
+
+dat_chl_count_after <- dat_chl_count_after %>% 
+  mutate(chl_per_sym = chl_tot_per_cm2 / count_per_cm2)
 ```
