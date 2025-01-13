@@ -1,0 +1,76 @@
+---
+title: "Set Up Data"
+format: html
+editor: visual
+---
+
+## Load packages
+
+```{r}
+library(tidyverse) 
+library(here) # paths start in project folder
+library(coralchlo) # chlorophyll calculations
+source(here("scripts/helper_functions.R")) # some helper functions to deal with sample IDs
+```
+
+## During Bleaching
+
+See [here](https://andieich.github.io/coral_chlorophyll_symcounts/6_calculations.html) for a description of functions in the `coralchlo` package.
+
+Read Metadata and calculate area:
+
+```{r}
+metadata_after <- "https://docs.google.com/spreadsheets/d/1ORvxp1S-1TpO_f12Qnnd0LyK4phBG3kjY2a0tGh43uk/edit?gid=1251086742#gid=1251086742"
+
+dat_overview_after <- read_metadata(metadata_after)
+```
+
+Calculate chlorophyll concentrations and normalize per area:
+
+```{r}
+dat_chl_after <- normalise_chl_per_area(dat_overview_after,
+                                    path_to_biotekfolder = "PhD/coral_physiology/photometer_files/csv", 
+                                    is_googledrive = T)
+```
+
+Normalize counts per surface area:
+
+```{r}
+dat_counts_after <- normalise_counts_per_area(dat_overview_after)
+```
+
+```{r}
+dat_chl_after <- dat_chl_after %>% 
+  get_info()
+
+dat_counts_after <- dat_counts_after %>% 
+  get_info()
+```
+
+Filter *Acropora* shallow
+
+```{r}
+dat_chl_after <- dat_chl_after %>% 
+  filter(spec == "A. hya", depth == "5 m")
+
+dat_counts_after <- dat_counts_after %>% 
+  filter(spec == "A. hya", depth == "5 m")
+```
+
+Overview number of samples
+
+```{r}
+dat_chl_after %>% 
+  # no duplicates (from replicate chl measurements)
+  filter(!duplicated(sample_id)) %>% 
+  group_by(site, size) %>% 
+  summarise(n = n())
+```
+
+```{r}
+write.csv(dat_chl_after, 
+          here("data/dat_chl_after"))
+
+write.csv(dat_counts_after, 
+          here("data/dat_counts_after"))
+```
