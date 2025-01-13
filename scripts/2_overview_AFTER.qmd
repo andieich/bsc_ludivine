@@ -1,0 +1,68 @@
+---
+title: "Overview Plots AFTER bleaching"
+format: html
+editor: visual
+---
+
+## Load libraries
+
+```{r}
+library(here)
+library(tidyverse)
+```
+
+```{r}
+dat_chl_after <-read.csv(here("data/dat_chl_after.csv"))
+
+dat_counts_after <- read.csv(here("data/dat_counts_after.csv"))
+```
+
+Summarise data
+
+```{r}
+dat_chl_afterS <- dat_chl_after %>% 
+  group_by(site, size, sample_id) %>% 
+  summarise(mean_chl_tot_per_cm2_colony = mean(chl_tot_per_cm2)) %>% 
+  group_by(site, size) %>% 
+  summarise(mean_chl_tot_per_cm2 = mean(mean_chl_tot_per_cm2_colony),
+            n = n(),
+            sd = sd(mean_chl_tot_per_cm2_colony),
+            se = sd / sqrt(n)
+  )
+```
+
+```{r}
+
+col_size <- c("Adult" = "#D16103",
+              "Juvenile" = "#293352")
+
+dat_chl_after %>% 
+  ggplot(aes(x = site, col = size,))+
+  geom_point(aes( y = chl_tot_per_cm2), 
+             position = position_jitterdodge(jitter.width = .2, 
+                                             dodge.width = .6),
+             alpha = .6)+
+  geom_errorbar(data = dat_chl_afterS, 
+                aes(x = site,
+                    ymin = mean_chl_tot_per_cm2 - se,
+                    ymax = mean_chl_tot_per_cm2 + se),
+                position = position_dodge(width = .6),
+                width = .3,
+                show.legend = F)+
+  geom_point(data = dat_chl_afterS, 
+             aes(x = site, 
+                 y = mean_chl_tot_per_cm2), 
+             size = 4,
+             position = position_dodge(width = .6), 
+             shape = 21, 
+             fill = "white", 
+             stroke = 1, 
+             show.legend = F)+
+  labs(x = "Site", 
+       y = expression("Chlorophyll in µg"~cm^-2), 
+       title = "Chlorophyll concentration after bleaching")+
+  scale_colour_manual(values = col_size, name = "Size")+
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+```

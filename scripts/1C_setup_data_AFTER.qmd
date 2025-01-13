@@ -69,8 +69,8 @@ dat_chl_after %>%
 
 ```{r}
 write.csv(dat_chl_after, 
-          here("data/dat_chl_after"))
+            here("data/dat_chl_after.csv"), row.names = F)
 
 write.csv(dat_counts_after, 
-          here("data/dat_counts_after"))
+          here("data/dat_counts_after.csv"), row.names = F)
 ```
