@@ -1,0 +1,111 @@
+---
+title: "Combine before, during, and after"
+format: html
+editor: visual
+---
+
+## Libraries
+
+```{r}
+library(tidyverse)
+library(here)
+```
+
+## Chlorophyll
+
+combine data
+
+```{r}
+#read
+dat_chl_before <- read.csv(here("data/dat_chl_before.csv"))
+dat_chl_during <- read.csv(here("data/dat_chl_during.csv"))
+dat_chl_after <- read.csv(here("data/dat_chl_after.csv"))
+
+#combine
+dat_chl <- bind_rows(dat_chl_before,
+                     dat_chl_during,
+                     dat_chl_after)
+
+#add info
+dat_chl <- dat_chl %>% 
+  mutate(timepoint = case_when(t == 2 ~  "before",
+                                 t == 3 ~  "during",
+                                 t == 4 ~  "after",
+                                 .default = NA)) 
+
+#re-order factors
+dat_chl <- dat_chl %>%
+  mutate(timepoint = factor(timepoint, levels = c("before", "during", "after")))
+
+  
+```
+
+Get overview of sample numbers
+
+```{r}
+dat_chl %>% 
+  select(timepoint, sample_id, site, depth, spec, size) %>% 
+  distinct() %>% #remove duplicates
+  group_by(timepoint, site, depth, spec, size) %>% 
+  summarise(n = n())
+
+```
+
+Focus on Adults
+
+```{r}
+dat_chl <- dat_chl %>% 
+  filter(size == "Adult")
+```
+
+Overview plot
+
+Summary
+
+```{r}
+dat_chlS <- dat_chl %>% 
+  group_by(timepoint, sample_id, site, depth, spec, size) %>% 
+  summarise(mean_chl_tot_per_cm2_colony = mean(chl_tot_per_cm2)) %>% 
+  group_by(timepoint, site, depth, spec, size) %>% 
+  summarise(mean_chl_tot_per_cm2 = mean(mean_chl_tot_per_cm2_colony),
+            n = n(),
+            sd = sd(mean_chl_tot_per_cm2_colony),
+            se = sd / sqrt(n)
+  )
+```
+
+```{r}
+
+col_site <- c("E2B" = "#009E73",
+              "Temae" = "#E69F00")
+
+dat_chl %>% 
+  ggplot(aes(x = site, col = site,))+
+  geom_point(aes( y = chl_tot_per_cm2), 
+             position = position_jitterdodge(jitter.width = .2, 
+                                             dodge.width = .6),
+             alpha = .6)+
+  geom_errorbar(data = dat_chlS, 
+                aes(x = site,
+                    ymin = mean_chl_tot_per_cm2 - se,
+                    ymax = mean_chl_tot_per_cm2 + se),
+                position = position_dodge(width = .6),
+                width = .3,
+                show.legend = F)+
+  geom_point(data = dat_chlS, 
+             aes(x = site, 
+                 y = mean_chl_tot_per_cm2), 
+             size = 4,
+             position = position_dodge(width = .6), 
+             shape = 21, 
+             fill = "white", 
+             stroke = 1, 
+             show.legend = F)+
+  labs(x = "Site", 
+       y = expression("Chlorophyll in µg"~cm^-2), 
+       title = "Chlorophyll concentration")+
+  scale_colour_manual(values = col_site, name = "Site")+
+  theme_minimal()+
+  facet_wrap(~timepoint)+
+  theme(plot.title = element_text(hjust = 0.5))
+```
