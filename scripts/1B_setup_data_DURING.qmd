@@ -98,8 +98,8 @@ No juveniles measured during t3
 
 ```{r}
 write.csv(dat_chl_during, 
-          here("data/dat_chl_during"))
+          here("data/dat_chl_during"), row.names = F)
 
 write.csv(dat_counts_during, 
-          here("data/dat_counts_during"))
+          here("data/dat_counts_during"), row.names = F)
 ```

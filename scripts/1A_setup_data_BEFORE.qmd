@@ -93,8 +93,8 @@ Save data
 
 ```{r}
 write.csv(dat_chl_before, 
-          here("data/dat_chl_before"))
+          here("data/dat_chl_before"), row.names = F)
 
 write.csv(dat_counts_before, 
-          here("data/dat_counts_before"))
+          here("data/dat_counts_before"), row.names = F)
 ```
