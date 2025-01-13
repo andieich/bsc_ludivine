@@ -95,7 +95,7 @@ dat_counts_afterS <- dat_counts_after %>%
 )
 ```
 
-Graph:chlorophyll
+Graph: Counts
 
 ```{r}
 
@@ -133,24 +133,57 @@ plot_symcount_after
 Chlorophyll per symbiont
 
 ```{r}
-
 dat_chl_after_persample <- dat_chl_after %>% 
-  group_by(sample_id) %>% 
-  summarise(chl_tot_per_cm2 = mean(chl_tot_per_cm2))
-  
+ group_by(sample_id) %>% 
+ summarise(chl_tot_per_cm2 = mean(chl_tot_per_cm2))
 
-dat_counts_after_persample <- dat_counts_after %>% 
-  group_by(sample_id) %>% 
+dat_counts_after_persample <- dat_counts_after %>%      group_by(sample_id) %>% 
   summarise(count_per_cm2 = mean(count_per_cm2))
 
+dat_chl_count_after <- left_join(dat_chl_after_persample,dat_counts_after_persample, by = "sample_id")
 
-#combine
+dat_chl_count_after <- dat_chl_count_after %>%
+  mutate(chl_per_symb = chl_tot_per_cm2 / count_per_cm2 )
 
-dat_chl_count_after <- left_join(dat_chl_after_persample,
-                                 dat_counts_after_persample,
-                                 by = "sample_id")
-
-
-dat_chl_count_after <- dat_chl_count_after %>% 
-  mutate(chl_per_sym = chl_tot_per_cm2 / count_per_cm2)
 ```
+
+```{r}
+dat_chl_count_after <- left_join(dat_chl_after_persample,
+                        dat_counts_after_persample, 
+                        by = "sample_id")
+```
+
+Graph: 
+
+
+```{r}
+
+plot_chl_after_persample<- dat_chl_count_after %>% 
+  ggplot(aes(x = site, col = size,))+
+  geom_point(aes( y = dat_chl_count_after), 
+             position = position_jitterdodge(jitter.width = .2, 
+                                             dodge.width = .6),
+             alpha = .6)+
+  geom_errorbar(data = dat_chl_count_after, 
+                aes(x = site,
+                  ymin = dat_chl_count_after - se,
+                  ymax = dat_chl_count_after + se),
+                position = position_dodge(width = .6),
+                width = .3,
+                show.legend = F)+
+  geom_point(data = dat_chl_count_after, 
+             aes(x = site, 
+                 y = dat_chl_count_afteri), 
+             size = 4,
+             position = position_dodge(width = .6), 
+             shape = 21, 
+             fill = "white", 
+             stroke = 1, 
+             show.legend = F)+
+  labs(x = "Site", 
+       y = expression("Chlorophyll per"~cm^2), 
+       title = "Chlorophyll per Symbiodiniaceae")+
+  scale_colour_manual(values = col_size, name = "Size")+
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5))
+plot_chl_after_persample
