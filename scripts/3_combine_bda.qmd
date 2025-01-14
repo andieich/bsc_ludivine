@@ -9,6 +9,7 @@ editor: visual
 ```{r}
 library(tidyverse)
 library(here)
+source(here("scripts/helper_functions.R")) # some helper functions to deal with sample IDs
 ```
 
 ## Chlorophyll
@@ -112,8 +113,171 @@ dat_chl %>%
 
 ## Counts
 
--   Continue
+```{r}
+#read
+dat_count_before <- read.csv(here("data/dat_counts_before.csv"))
+dat_count_during <- read.csv(here("data/dat_counts_during.csv"))
+dat_count_after <- read.csv(here("data/dat_counts_after.csv"))
+
+#combine
+dat_count <- bind_rows(dat_count_before,
+                     dat_count_during,
+                     dat_count_after)
+
+#add info
+dat_count <- dat_count %>% 
+  mutate(timepoint = case_when(t == 2 ~  "before",
+                                 t == 3 ~  "during",
+                                 t == 4 ~  "after",
+                                 .default = NA)) 
+
+#re-order factors
+dat_count <- dat_count %>%
+  mutate(timepoint = factor(timepoint, levels = c("before", "during", "after")))
+
+```
+
+```{r}
+dat_count %>% 
+  select(timepoint, sample_id, site, depth, spec, size) %>% 
+  distinct() %>% #remove duplicates
+  group_by(timepoint, site, depth, spec, size) %>% 
+  summarise(n = n())
+
+```
+
+Focus on Adults
+
+```{r}
+dat_count <- dat_count %>% 
+  filter(size == "Adult")
+
+```
+
+Overview plot
+
+Summary
+
+```{r}
+dat_countS <- dat_count %>% 
+  group_by(timepoint, sample_id, site, depth, spec, size) %>% 
+  summarise(mean_count_per_cm2_colony = mean(count_per_cm2)) %>% 
+  group_by(timepoint, site, depth, spec, size) %>% 
+  summarise(mean_count_per_cm2 = mean(mean_count_per_cm2_colony),
+            n = n(),
+            sd = sd(mean_count_per_cm2_colony),
+            se = sd / sqrt(n)
+  )
+```
+
+```{r}
+
+col_site <- c("E2B" = "#009E73",
+              "Temae" = "#E69F00")
+
+dat_count %>% 
+  ggplot(aes(x = site, col = site,))+
+  geom_point(aes( y = count_per_cm2), 
+             position = position_jitterdodge(jitter.width = .2, 
+                                             dodge.width = .6),
+             alpha = .6)+
+  geom_errorbar(data = dat_countS, 
+                aes(x = site,
+                    ymin = mean_count_per_cm2 - se,
+                    ymax = mean_count_per_cm2 + se),
+                position = position_dodge(width = .6),
+                width = .3,
+                show.legend = F)+
+  geom_point(data = dat_countsS, 
+             aes(x = site, 
+                 y = mean_count_per_cm2), 
+             size = 4,
+             position = position_dodge(width = .6), 
+             shape = 21, 
+             fill = "white", 
+             stroke = 1, 
+             show.legend = F)+
+  labs(x = "Site", 
+       y = expression("Number of Symbiodiniaceae per"~cm^2), 
+       title = "Number of Symbiodiniaceae")+
+  scale_colour_manual(values = col_site, name = "Site")+
+  theme_minimal()+
+  facet_wrap(~timepoint)+
+  theme(plot.title = element_text(hjust = 0.5))
+```
 
 ## Chlorophyll per Symbiont
 
--   Continue
+```{r}
+dat_chl_persample <- dat_chl %>% 
+ group_by(sample_id) %>% 
+ summarise(chl_tot_per_cm2 = mean(chl_tot_per_cm2))
+
+dat_counts_persample <- dat_count%>%     
+  group_by(sample_id) %>% 
+  summarise(count_per_cm2 = mean(count_per_cm2))
+
+dat_chl_count <- left_join(dat_chl_persample,
+                           dat_counts_persample, by = "sample_id")
+
+dat_chl_count <- dat_chl_count %>%
+  mutate(chl_per_symb = chl_tot_per_cm2 / count_per_cm2 ) %>%
+  get_info()
+
+
+dat_chl_count <- dat_chl_count %>% 
+  mutate(timepoint = case_when(t == 2 ~  "before",
+                                 t == 3 ~  "during",
+                                 t == 4 ~  "after",
+                                 .default = NA))  %>%
+  mutate(timepoint = factor(timepoint, levels = c("before", "during", "after")))
+
+```
+
+```{r}
+dat_chl_countS <- dat_chl_count %>% 
+  group_by(site, size) %>%  
+  summarise(mean_chl_per_symb = mean(chl_per_symb),
+           n = n(),
+           sd = sd(chl_per_symb),
+           se = sd / sqrt(n)
+)
+```
+
+```{r}
+
+col_site <- c("E2B" = "#009E73",
+              "Temae" = "#E69F00")
+
+plot_chl_count<- dat_chl_count %>% 
+  ggplot(aes(x = site, col = site,))+
+  geom_point(aes( y = chl_per_symb), 
+             position = position_jitterdodge(jitter.width = .2, 
+                                       dodge.width = .6),
+             alpha = .6)+
+  geom_errorbar(data = dat_chl_countS, 
+                aes(x = site,
+                  ymin = mean_chl_per_symb - se,
+                  ymax = mean_chl_per_symb + se),
+                position = position_dodge(width = .6),
+                width = .3,
+                show.legend = F)+
+  geom_point(data = dat_chl_countS, 
+             aes(x = site, 
+                 y = mean_chl_per_symb), 
+             size = 4,
+             position = position_dodge(width = .6), 
+             shape = 21, 
+             fill = "white", 
+             stroke = 1, 
+             show.legend = F)+
+  labs(x = "Site", 
+       y = expression("Chlorophyll per Symbiodiniaceae"), 
+       title = "Chlorophyll per Symbiodiniaceae")+
+  scale_colour_manual(values = col_site, name = "Sie")+
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5))+
+  facet_wrap(~timepoint)
+
+plot_chl_count
+```

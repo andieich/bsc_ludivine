@@ -9,6 +9,7 @@ editor: visual
 ```{r}
 library(here)
 library(tidyverse)
+source(here("scripts/helper_functions.R")) # some helper functions to deal with sample IDs
 ```
 
 ```{r}
@@ -95,7 +96,7 @@ dat_counts_afterS <- dat_counts_after %>%
 )
 ```
 
-Graph:chlorophyll
+Graph: Counts
 
 ```{r}
 
@@ -133,24 +134,62 @@ plot_symcount_after
 Chlorophyll per symbiont
 
 ```{r}
-
 dat_chl_after_persample <- dat_chl_after %>% 
-  group_by(sample_id) %>% 
-  summarise(chl_tot_per_cm2 = mean(chl_tot_per_cm2))
-  
+ group_by(sample_id) %>% 
+ summarise(chl_tot_per_cm2 = mean(chl_tot_per_cm2))
 
-dat_counts_after_persample <- dat_counts_after %>% 
-  group_by(sample_id) %>% 
+dat_counts_after_persample <- dat_counts_after %>%      group_by(sample_id) %>% 
   summarise(count_per_cm2 = mean(count_per_cm2))
 
+dat_chl_count_after <- left_join(dat_chl_after_persample,dat_counts_after_persample, by = "sample_id")
 
-#combine
+dat_chl_count_after <- dat_chl_count_after %>%
+  mutate(chl_per_symb = chl_tot_per_cm2 / count_per_cm2 ) %>%
+  get_info()
 
-dat_chl_count_after <- left_join(dat_chl_after_persample,
-                                 dat_counts_after_persample,
-                                 by = "sample_id")
+```
 
+```{r}
+dat_chl_count_afterS <- dat_chl_count_after %>% 
+  group_by(site, size) %>%  
+  summarise(mean_chl_per_symb = mean(chl_per_symb),
+           n = n(),
+           sd = sd(chl_per_symb),
+           se = sd / sqrt(n)
+)
+```
 
-dat_chl_count_after <- dat_chl_count_after %>% 
-  mutate(chl_per_sym = chl_tot_per_cm2 / count_per_cm2)
+Graph: Chlorophyll per symbiont
+
+```{r}
+
+plot_chl_per_symb<- dat_chl_count_after %>% 
+  ggplot(aes(x = site, col = size,))+
+  geom_point(aes( y = chl_per_symb), 
+             position = position_jitterdodge(jitter.width = .2, 
+                                       dodge.width = .6),
+             alpha = .6)+
+  geom_errorbar(data = dat_chl_count_afterS, 
+                aes(x = site,
+                  ymin = mean_chl_per_symb - se,
+                  ymax = mean_chl_per_symb + se),
+                position = position_dodge(width = .6),
+                width = .3,
+                show.legend = F)+
+  geom_point(data = dat_chl_count_afterS, 
+             aes(x = site, 
+                 y = mean_chl_per_symb), 
+             size = 4,
+             position = position_dodge(width = .6), 
+             shape = 21, 
+             fill = "white", 
+             stroke = 1, 
+             show.legend = F)+
+  labs(x = "Site", 
+       y = expression("Chlorophyll per Symbiodiniaceae"), 
+       title = "Chlorophyll per Symbiodiniaceae")+
+  scale_colour_manual(values = col_size, name = "Size")+
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5))
+plot_chl_per_symb
 ```
