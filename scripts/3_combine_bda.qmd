@@ -80,7 +80,7 @@ col_site <- c("E2B" = "#009E73",
               "Temae" = "#E69F00")
 
 dat_chl %>% 
-  ggplot(aes(x = site, col = site,))+
+  ggplot(aes(x = site, col = site))+
   geom_point(aes( y = chl_tot_per_cm2), 
              position = position_jitterdodge(jitter.width = .2, 
                                              dodge.width = .6),
