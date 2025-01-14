@@ -10,6 +10,7 @@ editor: visual
 library(tidyverse)
 library(here)
 source(here("scripts/helper_functions.R")) # some helper functions to deal with sample IDs
+library(performance)
 ```
 
 ## Chlorophyll
