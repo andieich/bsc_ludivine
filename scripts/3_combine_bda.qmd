@@ -218,7 +218,7 @@ dat_chl_count <- left_join(dat_chl_persample,
                            dat_counts_persample, by = "sample_id")
 
 dat_chl_count <- dat_chl_count %>%
-  mutate(chl_per_symb = chl_tot_per_cm2 / count_per_cm2 ) %>%
+  mutate(chl_per_symb = chl_tot_per_cm2 / count_per_cm2) %>%
   get_info()
 
 
@@ -233,7 +233,7 @@ dat_chl_count <- dat_chl_count %>%
 
 ```{r}
 dat_chl_countS <- dat_chl_count %>% 
-  group_by(site, size) %>%  
+  group_by(site, size, timepoint) %>%  
   summarise(mean_chl_per_symb = mean(chl_per_symb),
            n = n(),
            sd = sd(chl_per_symb),
@@ -246,35 +246,99 @@ dat_chl_countS <- dat_chl_count %>%
 col_site <- c("E2B" = "#009E73",
               "Temae" = "#E69F00")
 
+
+```
+
+```{r}
+# extra data frame for model to exclude E2B after
+dat_chl_count_model <- dat_chl_count %>% 
+  mutate(site_timepoint = paste(site, timepoint, sep ="_")) %>% 
+  filter(site_timepoint != "E2B_after")
+
+
+# One linear model (normal distribution) and a generalised linear model with Gamma distribution
+m_chl_count1 <- lm(chl_per_symb ~ site_timepoint, 
+                   data = dat_chl_count_model)
+
+m_chl_count2 <- glm(chl_per_symb ~ site_timepoint, 
+                   data = dat_chl_count_model,
+                   family = "Gamma")
+
+#compare models
+AIC(m_chl_count1, m_chl_count2) # m_chl_count1 slightly lower
+
+library(performance)
+compare_performance(m_chl_count1, m_chl_count2, rank = TRUE)#chose m_chl_count1
+
+
+summary(m_chl_count1)#Adjusted R-squared:  0.6554 
+plot(m_chl_count1)
+```
+
+```{r}
+anova(m_chl_count1)
+
+```
+
+```{r}
+library(emmeans)
+library(multcomp)
+
+em_chl_count <- emmeans(m_chl_count1, pairwise ~ site_timepoint)
+
+dat_em_chl_count <- em_chl_count %>% 
+  cld(Letters = LETTERS) %>% 
+  mutate(group = trimws(.group)) %>% 
+  dplyr::select(site_timepoint, group) %>% 
+  separate(site_timepoint, into = c("site", "timepoint"))
+
+dat_chl_countS <- left_join(dat_chl_countS,
+                            dat_em_chl_count,
+                            by = c("site", "timepoint"))
+  
+
+
+
+```
+
+```{r}
 plot_chl_count<- dat_chl_count %>% 
-  ggplot(aes(x = site, col = site,))+
-  geom_point(aes( y = chl_per_symb), 
-             position = position_jitterdodge(jitter.width = .2, 
+  ggplot(aes(x = timepoint, col = site))+
+  geom_point(aes(y = chl_per_symb),
+             position = position_jitterdodge(jitter.width = .2,
                                        dodge.width = .6),
              alpha = .6)+
-  geom_errorbar(data = dat_chl_countS, 
-                aes(x = site,
-                  ymin = mean_chl_per_symb - se,
+  geom_errorbar(data = dat_chl_countS,
+                aes(ymin = mean_chl_per_symb - se,
                   ymax = mean_chl_per_symb + se),
                 position = position_dodge(width = .6),
                 width = .3,
                 show.legend = F)+
-  geom_point(data = dat_chl_countS, 
-             aes(x = site, 
-                 y = mean_chl_per_symb), 
-             size = 4,
+      geom_line(data = dat_chl_countS, 
+             aes(y = mean_chl_per_symb,
+                 group = site),
              position = position_dodge(width = .6), 
-             shape = 21, 
-             fill = "white", 
-             stroke = 1, 
              show.legend = F)+
+  geom_point(data = dat_chl_countS,
+             aes(y = mean_chl_per_symb),
+             size = 4,
+             position = position_dodge(width = .6),
+             shape = 21,
+             fill = "white",
+             stroke = 1,
+             show.legend = F)+
+  geom_text(data = dat_chl_countS, 
+            aes(y = mean_chl_per_symb + se, label = group, group = site),
+            position = position_dodge(width = .6), 
+            col = "black",
+            vjust = -0.3
+            )+
   labs(x = "Site", 
        y = expression("Chlorophyll per Symbiodiniaceae"), 
        title = "Chlorophyll per Symbiodiniaceae")+
-  scale_colour_manual(values = col_site, name = "Sie")+
+  scale_colour_manual(values = col_site, name = "Site")+
   theme_minimal()+
-  theme(plot.title = element_text(hjust = 0.5))+
-  facet_wrap(~timepoint)
+  theme(plot.title = element_text(hjust = 0.5))
 
 plot_chl_count
 ```
