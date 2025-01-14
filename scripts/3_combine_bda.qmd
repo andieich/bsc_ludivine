@@ -172,9 +172,6 @@ dat_countS <- dat_count %>%
 
 ```{r}
 
-col_site <- c("E2B" = "#009E73",
-              "Temae" = "#E69F00")
-
 dat_count %>% 
   ggplot(aes(x = site, col = site,))+
   geom_point(aes( y = count_per_cm2), 
@@ -188,7 +185,7 @@ dat_count %>%
                 position = position_dodge(width = .6),
                 width = .3,
                 show.legend = F)+
-  geom_point(data = dat_countsS, 
+  geom_point(data = dat_countS, 
              aes(x = site, 
                  y = mean_count_per_cm2), 
              size = 4,
