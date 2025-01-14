@@ -149,7 +149,6 @@ dat_chl_count_after <- dat_chl_count_after %>%
 
 ```
 
-
 ```{r}
 dat_chl_count_afterS <- dat_chl_count_after %>% 
   group_by(site, size) %>%  
@@ -161,7 +160,6 @@ dat_chl_count_afterS <- dat_chl_count_after %>%
 ```
 
 Graph: Chlorophyll per symbiont
-
 
 ```{r}
 
