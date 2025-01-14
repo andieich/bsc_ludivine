@@ -222,6 +222,22 @@ anova(m_dat_chl_count_after2)
 
 ```
 
+Copy data to Word/Excel
+
+```{r}
+library(broom)
+library(htmlTable)
+
+anova(m_dat_chl_count_after2) %>% 
+  tidy() %>% 
+  janitor::clean_names() %>% #clean names (no spaces etc)
+  mutate(p_value = txtPval(p_value, lim.sig = 10^-4)) %>% #round p values, everything below lim.sig is changed to < 0.0001 (or the appropriate number os 0s). Read in ?txtPval
+  mutate(sumsq = format(sumsq, digits = 2),
+         meansq = format(meansq, digits = 2),
+         statistic = format(statistic, digits = 2)) %>% #additionally to the already formatted p-values (pr_f), add all variables you do not want to have rounded (here, df)
+  htmlTable()
+```
+
 ```{r}
 #compare models
 AIC(m_dat_chl_count_after, m_dat_chl_count_after2) # m_chl_count1 slightly lower
