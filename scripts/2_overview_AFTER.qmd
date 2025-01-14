@@ -193,3 +193,108 @@ plot_chl_per_symb<- dat_chl_count_after %>%
   theme(plot.title = element_text(hjust = 0.5))
 plot_chl_per_symb
 ```
+
+Graph : Chlorophyll per symbiont (comparison between the two sites)
+
+```{r}
+m_dat_chl_count_after <- glm(chl_per_symb ~ site*size, 
+                   data = dat_chl_count_after,
+                   family = "Gamma")
+  
+```
+
+```{r}
+library(car)
+summary(m_dat_chl_count_after)
+Anova(m_dat_chl_count_after)
+
+```
+
+```{r}
+m_dat_chl_count_after2<- lm(chl_per_symb ~ site*size, 
+                   data = dat_chl_count_after)
+```
+
+```{r}
+library(car)
+summary(m_dat_chl_count_after2)
+anova(m_dat_chl_count_after2)
+
+```
+
+```{r}
+#compare models
+AIC(m_dat_chl_count_after, m_dat_chl_count_after2) # m_chl_count1 slightly lower
+
+library(performance)
+compare_performance(m_dat_chl_count_after, m_dat_chl_count_after2, rank = TRUE)#chose dat_chl_count_after2
+```
+
+```{r}
+summary(m_dat_chl_count_after2)#Adjusted R-squared:  0.0333
+plot(m_dat_chl_count_after2)
+```
+
+```{r}
+library(emmeans)
+library(multcomp)
+
+em_chl_count_after <- emmeans(m_dat_chl_count_after2, pairwise ~ size*site)
+
+dat_em_chl_count_after <- em_chl_count_after %>% 
+  cld(Letters = LETTERS) %>% 
+  mutate(group = trimws(.group)) %>% 
+  dplyr::select(site, size, group)
+
+dat_chl_count_afterS <- left_join(dat_chl_count_afterS,
+                            dat_em_chl_count_after,
+                            by = c("site", "size"))
+  
+
+
+
+```
+
+```{r}
+emmeans(lm(chl_per_symb ~ size, 
+                   data = dat_chl_count_after),
+        pairwise ~ size)
+
+```
+
+```{r}
+plot_chl_count_after <- dat_chl_count_after %>% 
+  ggplot(aes(x = size, col = site))+
+  geom_point(aes(y = chl_per_symb),
+             position = position_jitterdodge(jitter.width = .2,
+                                       dodge.width = .6),
+             alpha = .6)+
+  geom_errorbar(data = dat_chl_count_afterS,
+                aes(ymin = mean_chl_per_symb - se,
+                  ymax = mean_chl_per_symb + se),
+                position = position_dodge(width = .6),
+                width = .3,
+                show.legend = F)+
+      geom_line(data = dat_chl_count_afterS, 
+             aes(y = mean_chl_per_symb,
+                 group = site),
+             position = position_dodge(width = .6), 
+             show.legend = F)+
+  geom_point(data = dat_chl_count_afterS,
+             aes(y = mean_chl_per_symb),
+             size = 4,
+             position = position_dodge(width = .6),
+             shape = 21,
+             fill = "white",
+             stroke = 1,
+             show.legend = F)+
+
+  labs(x = "Site", 
+       y = expression("Chlorophyll per Symbiodiniaceae"), 
+       title = "Chlorophyll per Symbiodiniaceae")+
+  scale_colour_manual(values = col_site, name = "Site")+
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+plot_chl_count_after
+```
