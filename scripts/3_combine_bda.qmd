@@ -46,7 +46,7 @@ Get overview of sample numbers
 
 ```{r}
 dat_chl %>% 
-  select(timepoint, sample_id, site, depth, spec, size) %>% 
+  dplyr::select(timepoint, sample_id, site, depth, spec, size) %>% 
   distinct() %>% #remove duplicates
   group_by(timepoint, site, depth, spec, size) %>% 
   summarise(n = n())
@@ -110,6 +110,61 @@ dat_chl %>%
   theme_minimal()+
   facet_wrap(~timepoint)+
   theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+
+dat_chl_mod  <-  dat_chl %>% 
+  group_by(sample_id, site, size)  %>% 
+  summarise(chl_tot_per_cm2 = mean(chl_tot_per_cm2))
+
+
+# extra data frame for model to exclude E2B after
+dat_chl_model <- dat_chl %>% 
+  mutate(site_timepoint = paste(site, timepoint, sep ="_")) %>% 
+  filter(site_timepoint != "E2B_after")
+
+
+# One linear model (normal distribution) and a generalised linear model with Gamma distribution
+m_chl1 <- lm(chl_tot_per_cm2 ~ site_timepoint, 
+                   data = dat_chl_model)
+
+m_chl2 <- glm(chl_tot_per_cm2 ~ site_timepoint, 
+                   data = dat_chl_model,
+                   family = "Gamma")
+
+#compare models
+AIC(m_chl1, m_chl2) 
+
+library(performance)
+compare_performance(m_chl1, m_chl2, rank = TRUE)#chose m_chl_count1
+
+```
+
+```{r}
+summary(m_chl2)#Adjusted R-squared:   
+plot(m_chl2)
+```
+
+```{r}
+library(emmeans)
+library(multcomp)
+
+em_chl <- emmeans(m_chl2 , pairwise ~ site_timepoint)
+
+dat_em_chl <- em_chl %>% 
+  cld(Letters = LETTERS) %>% 
+  mutate(group = trimws(.group)) %>% 
+  dplyr::select(site_timepoint, group) %>% 
+  separate(site_timepoint, into = c("site", "timepoint"))
+
+dat_chlS <- left_join(dat_chlS,
+                            dat_em_chl ,
+                            by = c("site", "timepoint"))
+```
+
+```{r}
+dat_chlS
 ```
 
 ## Counts
@@ -342,4 +397,16 @@ plot_chl_count<- dat_chl_count %>%
   theme(plot.title = element_text(hjust = 0.5))
 
 plot_chl_count
+```
+
+```         
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{}
 ```

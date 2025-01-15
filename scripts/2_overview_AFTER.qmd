@@ -174,8 +174,12 @@ plot_chl_per_symb<- dat_chl_count_after %>%
                   ymin = mean_chl_per_symb - se,
                   ymax = mean_chl_per_symb + se),
                 position = position_dodge(width = .6),
-                width = .3,
-                show.legend = F)+
+                width = .3, show.legend = F)+
+  geom_line(data = dat_chl_count_afterS, 
+             aes(y = mean_chl_per_symb,
+                 group = size),
+             position = position_dodge(width = .6), 
+             show.legend = F)+
   geom_point(data = dat_chl_count_afterS, 
              aes(x = site, 
                  y = mean_chl_per_symb), 
@@ -313,4 +317,107 @@ plot_chl_count_after <- dat_chl_count_after %>%
   theme(plot.title = element_text(hjust = 0.5))
 
 plot_chl_count_after
+```
+
+Graph : Concentration Chlorophylle (comparison between the two sites)
+
+```{r}
+
+```
+
+```{r}
+dat_chl_after_mod  <-  dat_chl_after  %>% 
+  group_by(sample_id, site, size)  %>% 
+  summarise(chl_tot_per_cm2 = mean(chl_tot_per_cm2))
+
+
+m_dat_chl_after <- glm(chl_tot_per_cm2 ~ site*size, 
+                   data = dat_chl_after_mod,
+                   family = "Gamma")
+
+#null model
+m_dat_chl_after0 <- glm(chl_tot_per_cm2 ~ 1, 
+                   data = dat_chl_after_mod,
+                   family = "Gamma")
+
+
+```
+
+```{r}
+1 - (logLik(m_dat_chl_after)/logLik(m_dat_chl_after0))
+
+```
+
+```{r}
+library(car)
+summary(m_dat_chl_after)
+Anova(m_dat_chl_after)
+
+```
+
+```{r}
+m_dat_chl_after2<- lm(chl_tot_per_cm2 ~ site*size, 
+                   data = dat_chl_after_mod)
+```
+
+```{r}
+library(car)
+summary(m_dat_chl_after2)
+anova(m_dat_chl_after2)
+
+```
+
+```{r}
+AIC(m_dat_chl_after, m_dat_chl_after2) 
+
+library(performance)
+compare_performance(m_dat_chl_after, m_dat_chl_after2, rank = TRUE)#chose dat_chl_after
+```
+
+```{r}
+summary(m_dat_chl_after)#Adjusted R-squared:  
+plot(m_dat_chl_after)
+```
+
+Stat : Nombre de symbiodiniaceae
+
+```{r}
+dat_count_after_mod  <-  dat_count_after  %>% 
+  group_by(sample_id, site, size)  %>% 
+  summarise(count_per_cm2 = mean(count_per_cm2))
+
+
+m_dat_count_after <- glm(count_per_cm2 ~ site*size, 
+                   data = dat_count_after_mod,
+                   family = "Gamma")
+
+#null model
+m_dat_count_after0 <- glm(count_per_cm2 ~ 1, 
+                   data = dat_count_after_mod,
+                   family = "Gamma")
+
+
+```
+
+```{r}
+ 1 - (logLik(m_dat_count_after)/logLik(m_dat_count_after0))
+
+```
+
+```{r}
+library(car)
+summary(m_dat_count_after)
+Anova(m_dat_count_after)
+
+```
+
+```{r}
+m_dat_count_after2<- lm(count_per_cm2 ~ site*size, 
+                   data = dat_count_after_mod)
+```
+
+```{r}
+library(car)
+summary(m_dat_count_after2)
+anova(m_dat_count_after2)
 ```
