@@ -389,9 +389,9 @@ plot_chl_count<- dat_chl_count %>%
             col = "black",
             vjust = -0.3
             )+
-  labs(x = "Site", 
-       y = expression("Chlorophyll per Symbiodiniaceae"), 
-       title = "Chlorophyll per Symbiodiniaceae")+
+  labs( x = expression(" "),
+    y = expression("Chlorophyll per Symbiodiniaceae"), 
+       title = "Chlorophyll per Symbiodiniaceae:")+
   scale_colour_manual(values = col_site, name = "Site")+
   theme_minimal()+
   theme(plot.title = element_text(hjust = 0.5))
@@ -399,14 +399,3 @@ plot_chl_count<- dat_chl_count %>%
 plot_chl_count
 ```
 
-```         
-```
-
-```{r}
-```
-
-```{r}
-```
-
-```{}
-```

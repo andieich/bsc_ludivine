@@ -75,8 +75,8 @@ dat_chl_after %>%
              stroke = 1, 
              show.legend = F)+
   labs(x = "Site", 
-       y = expression("Chlorophyll in µg"~cm^-2), 
-       title = "Chlorophyll concentration after bleaching")+
+       y = expression("Chlorophyll in µg/"~cm^2), 
+       title = "Chlorophyll concentration after the bleaching event in May 2024:")+
   scale_colour_manual(values = col_size, name = "Size")+
   theme_minimal()+
   theme(plot.title = element_text(hjust = 0.5))
@@ -124,7 +124,7 @@ plot_symcount_after <- dat_counts_after %>%
              show.legend = F)+
   labs(x = "Site", 
        y = expression("Number of Symbiodiniaceae per"~cm^2), 
-       title = "Number of Symbiodiniaceae")+
+       title = "Number of Symbiodiniaceae:")+
   scale_colour_manual(values = col_size, name = "Size")+
   theme_minimal()+
   theme(plot.title = element_text(hjust = 0.5))
@@ -175,11 +175,7 @@ plot_chl_per_symb<- dat_chl_count_after %>%
                   ymax = mean_chl_per_symb + se),
                 position = position_dodge(width = .6),
                 width = .3, show.legend = F)+
-  geom_line(data = dat_chl_count_afterS, 
-             aes(y = mean_chl_per_symb,
-                 group = size),
-             position = position_dodge(width = .6), 
-             show.legend = F)+
+
   geom_point(data = dat_chl_count_afterS, 
              aes(x = site, 
                  y = mean_chl_per_symb), 
@@ -283,6 +279,10 @@ emmeans(lm(chl_per_symb ~ size,
 ```
 
 ```{r}
+
+col_site <- c("E2B" = "#009E73",
+              "Temae" = "#E69F00")
+
 plot_chl_count_after <- dat_chl_count_after %>% 
   ggplot(aes(x = size, col = site))+
   geom_point(aes(y = chl_per_symb),
@@ -295,11 +295,7 @@ plot_chl_count_after <- dat_chl_count_after %>%
                 position = position_dodge(width = .6),
                 width = .3,
                 show.legend = F)+
-      geom_line(data = dat_chl_count_afterS, 
-             aes(y = mean_chl_per_symb,
-                 group = site),
-             position = position_dodge(width = .6), 
-             show.legend = F)+
+  
   geom_point(data = dat_chl_count_afterS,
              aes(y = mean_chl_per_symb),
              size = 4,
@@ -309,9 +305,9 @@ plot_chl_count_after <- dat_chl_count_after %>%
              stroke = 1,
              show.legend = F)+
 
-  labs(x = "Site", 
+  labs(x = "Size", 
        y = expression("Chlorophyll per Symbiodiniaceae"), 
-       title = "Chlorophyll per Symbiodiniaceae")+
+       title = "Chlorophyll per Symbiodiniaceae:")+
   scale_colour_manual(values = col_site, name = "Site")+
   theme_minimal()+
   theme(plot.title = element_text(hjust = 0.5))
