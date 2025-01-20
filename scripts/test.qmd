@@ -1,0 +1,400 @@
+---
+title: "Combine before, during, and after"
+format: html
+editor: visual
+---
+
+## Libraries
+
+```{r}
+library(tidyverse)
+library(here)
+source(here("scripts/helper_functions.R")) # some helper functions to deal with sample IDs
+library(performance)
+```
+
+## Chlorophyll
+
+combine data
+
+```{r}
+#read
+dat_chl_before <- read.csv(here("data/dat_chl_before.csv"))
+dat_chl_during <- read.csv(here("data/dat_chl_during.csv"))
+dat_chl_after <- read.csv(here("data/dat_chl_after.csv"))
+
+#combine
+dat_chl <- bind_rows(dat_chl_before,
+                     dat_chl_during,
+                     dat_chl_after)
+
+#add info
+dat_chl <- dat_chl %>% 
+  mutate(timepoint = case_when(t == 2 ~  "before",
+                                 t == 3 ~  "during",
+                                 t == 4 ~  "after",
+                                 .default = NA)) 
+
+#re-order factors
+dat_chl <- dat_chl %>%
+  mutate(timepoint = factor(timepoint, levels = c("before", "during", "after")))
+
+  
+```
+
+Get overview of sample numbers
+
+```{r}
+dat_chl %>% 
+  dplyr::select(timepoint, sample_id, site, depth, spec, size) %>% 
+  distinct() %>% #remove duplicates
+  group_by(timepoint, site, depth, spec, size) %>% 
+  summarise(n = n())
+
+```
+
+Focus on Adults
+
+```{r}
+dat_chl <- dat_chl %>% 
+  filter(size == "Adult")
+```
+
+Overview plot
+
+Summary
+
+```{r}
+dat_chlS <- dat_chl %>% 
+  group_by(timepoint, sample_id, site, depth, spec, size) %>% 
+  summarise(mean_chl_tot_per_cm2_colony = mean(chl_tot_per_cm2)) %>% 
+  group_by(timepoint, site, depth, spec, size) %>% 
+  summarise(mean_chl_tot_per_cm2 = mean(mean_chl_tot_per_cm2_colony),
+            n = n(),
+            sd = sd(mean_chl_tot_per_cm2_colony),
+            se = sd / sqrt(n)
+  )
+```
+
+```{r}
+
+col_site <- c("E2B" = "#009E73",
+              "Temae" = "#E69F00")
+
+dat_chl %>% 
+  ggplot(aes(x = site, col = site))+
+  geom_point(aes( y = chl_tot_per_cm2), 
+             position = position_jitterdodge(jitter.width = .2, 
+                                             dodge.width = .6),
+             alpha = .6)+
+  geom_errorbar(data = dat_chlS, 
+                aes(x = site,
+                    ymin = mean_chl_tot_per_cm2 - se,
+                    ymax = mean_chl_tot_per_cm2 + se),
+                position = position_dodge(width = .6),
+                width = .3,
+                show.legend = F)+
+  geom_point(data = dat_chlS, 
+             aes(x = site, 
+                 y = mean_chl_tot_per_cm2), 
+             size = 4,
+             position = position_dodge(width = .6), 
+             shape = 21, 
+             fill = "white", 
+             stroke = 1, 
+             show.legend = F)+
+  labs(x = "Site", 
+       y = expression("Chlorophyll in µg"~cm^-2), 
+       title = "Chlorophyll concentration")+
+  scale_colour_manual(values = col_site, name = "Site")+
+  theme_minimal()+
+  facet_wrap(~timepoint)+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+
+dat_chl_mod  <-  dat_chl %>% 
+  group_by(sample_id, site, size)  %>% 
+  summarise(chl_tot_per_cm2 = mean(chl_tot_per_cm2))
+
+
+# extra data frame for model to exclude E2B after
+dat_chl_model <- dat_chl %>% 
+  mutate(site_timepoint = paste(site, timepoint, sep ="_")) %>% 
+  filter(site_timepoint != "E2B_after")
+
+
+# One linear model (normal distribution) and a generalised linear model with Gamma distribution
+m_chl1 <- lm(chl_tot_per_cm2 ~ site_timepoint, 
+                   data = dat_chl_model)
+
+m_chl2 <- glm(chl_tot_per_cm2 ~ site_timepoint, 
+                   data = dat_chl_model,
+                   family = "Gamma")
+
+#compare models
+AIC(m_chl1, m_chl2) 
+
+library(performance)
+compare_performance(m_chl1, m_chl2, rank = TRUE)#chose m_chl_count1
+
+```
+
+```{r}
+summary(m_chl2)#Adjusted R-squared:   
+plot(m_chl2)
+```
+
+```{r}
+library(emmeans)
+library(multcomp)
+
+em_chl <- emmeans(m_chl2 , pairwise ~ site_timepoint)
+
+dat_em_chl <- em_chl %>% 
+  cld(Letters = LETTERS) %>% 
+  mutate(group = trimws(.group)) %>% 
+  dplyr::select(site_timepoint, group) %>% 
+  separate(site_timepoint, into = c("site", "timepoint"))
+
+dat_chlS <- left_join(dat_chlS,
+                            dat_em_chl ,
+                            by = c("site", "timepoint"))
+```
+
+```{r}
+dat_chlS
+```
+
+## Counts
+
+```{r}
+#read
+dat_count_before <- read.csv(here("data/dat_counts_before.csv"))
+dat_count_during <- read.csv(here("data/dat_counts_during.csv"))
+dat_count_after <- read.csv(here("data/dat_counts_after.csv"))
+
+#combine
+dat_count <- bind_rows(dat_count_before,
+                     dat_count_during,
+                     dat_count_after)
+
+#add info
+dat_count <- dat_count %>% 
+  mutate(timepoint = case_when(t == 2 ~  "before",
+                                 t == 3 ~  "during",
+                                 t == 4 ~  "after",
+                                 .default = NA)) 
+
+#re-order factors
+dat_count <- dat_count %>%
+  mutate(timepoint = factor(timepoint, levels = c("before", "during", "after")))
+
+```
+
+```{r}
+dat_count %>% 
+  select(timepoint, sample_id, site, depth, spec, size) %>% 
+  distinct() %>% #remove duplicates
+  group_by(timepoint, site, depth, spec, size) %>% 
+  summarise(n = n())
+
+```
+
+Focus on Adults
+
+```{r}
+dat_count <- dat_count %>% 
+  filter(size == "Adult")
+
+```
+
+Overview plot
+
+Summary
+
+```{r}
+dat_countS <- dat_count %>% 
+  group_by(timepoint, sample_id, site, depth, spec, size) %>% 
+  summarise(mean_count_per_cm2_colony = mean(count_per_cm2)) %>% 
+  group_by(timepoint, site, depth, spec, size) %>% 
+  summarise(mean_count_per_cm2 = mean(mean_count_per_cm2_colony),
+            n = n(),
+            sd = sd(mean_count_per_cm2_colony),
+            se = sd / sqrt(n)
+  )
+```
+
+```{r}
+
+dat_count %>% 
+  ggplot(aes(x = site, col = site,))+
+  geom_point(aes( y = count_per_cm2), 
+             position = position_jitterdodge(jitter.width = .2, 
+                                             dodge.width = .6),
+             alpha = .6)+
+  geom_errorbar(data = dat_countS, 
+                aes(x = site,
+                    ymin = mean_count_per_cm2 - se,
+                    ymax = mean_count_per_cm2 + se),
+                position = position_dodge(width = .6),
+                width = .3,
+                show.legend = F)+
+  geom_point(data = dat_countS, 
+             aes(x = site, 
+                 y = mean_count_per_cm2), 
+             size = 4,
+             position = position_dodge(width = .6), 
+             shape = 21, 
+             fill = "white", 
+             stroke = 1, 
+             show.legend = F)+
+  labs(x = "Site", 
+       y = expression("Number of Symbiodiniaceae per"~cm^2), 
+       title = "Number of Symbiodiniaceae")+
+  scale_colour_manual(values = col_site, name = "Site")+
+  theme_minimal()+
+  facet_wrap(~timepoint)+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## Chlorophyll per Symbiont
+
+```{r}
+dat_chl_persample <- dat_chl %>% 
+ group_by(sample_id) %>% 
+ summarise(chl_tot_per_cm2 = mean(chl_tot_per_cm2))
+
+dat_counts_persample <- dat_count%>%     
+  group_by(sample_id) %>% 
+  summarise(count_per_cm2 = mean(count_per_cm2))
+
+dat_chl_count <- left_join(dat_chl_persample,
+                           dat_counts_persample, by = "sample_id")
+
+dat_chl_count <- dat_chl_count %>%
+  mutate(chl_per_symb = chl_tot_per_cm2 / count_per_cm2) %>%
+  get_info()
+
+
+dat_chl_count <- dat_chl_count %>% 
+  mutate(timepoint = case_when(t == 2 ~  "before",
+                                 t == 3 ~  "during",
+                                 t == 4 ~  "after",
+                                 .default = NA))  %>%
+  mutate(timepoint = factor(timepoint, levels = c("before", "during", "after")))
+
+```
+
+```{r}
+dat_chl_countS <- dat_chl_count %>% 
+  group_by(site, size, timepoint) %>%  
+  summarise(mean_chl_per_symb = mean(chl_per_symb),
+           n = n(),
+           sd = sd(chl_per_symb),
+           se = sd / sqrt(n)
+)
+```
+
+```{r}
+
+col_site <- c("E2B" = "#009E73",
+              "Temae" = "#E69F00")
+
+
+```
+
+```{r}
+# extra data frame for model to exclude E2B after
+dat_chl_count_model <- dat_chl_count %>% 
+  mutate(site_timepoint = paste(site, timepoint, sep ="_")) %>% 
+  filter(site_timepoint != "E2B_after")
+
+
+# One linear model (normal distribution) and a generalised linear model with Gamma distribution
+m_chl_count1 <- lm(chl_per_symb ~ site_timepoint, 
+                   data = dat_chl_count_model)
+
+m_chl_count2 <- glm(chl_per_symb ~ site_timepoint, 
+                   data = dat_chl_count_model,
+                   family = "Gamma")
+
+#compare models
+AIC(m_chl_count1, m_chl_count2) # m_chl_count1 slightly lower
+
+library(performance)
+compare_performance(m_chl_count1, m_chl_count2, rank = TRUE)#chose m_chl_count1
+
+
+summary(m_chl_count1)#Adjusted R-squared:  0.6554 
+plot(m_chl_count1)
+```
+
+```{r}
+anova(m_chl_count1)
+
+```
+
+```{r}
+library(emmeans)
+library(multcomp)
+
+em_chl_count <- emmeans(m_chl_count1, pairwise ~ site_timepoint)
+
+dat_em_chl_count <- em_chl_count %>% 
+  cld(Letters = LETTERS) %>% 
+  mutate(group = trimws(.group)) %>% 
+  dplyr::select(site_timepoint, group) %>% 
+  separate(site_timepoint, into = c("site", "timepoint"))
+
+dat_chl_countS <- left_join(dat_chl_countS,
+                            dat_em_chl_count,
+                            by = c("site", "timepoint"))
+  
+
+
+
+```
+
+```{r}
+plot_chl_count<- dat_chl_count %>% 
+  ggplot(aes(x = timepoint, col = site))+
+  geom_point(aes(y = chl_per_symb),
+             position = position_jitterdodge(jitter.width = .2,
+                                       dodge.width = .6),
+             alpha = .6)+
+  geom_errorbar(data = dat_chl_countS,
+                aes(ymin = mean_chl_per_symb - se,
+                  ymax = mean_chl_per_symb + se),
+                position = position_dodge(width = .6),
+                width = .3,
+                show.legend = F)+
+      geom_line(data = dat_chl_countS, 
+             aes(y = mean_chl_per_symb,
+                 group = site),
+             position = position_dodge(width = .6), 
+             show.legend = F)+
+  geom_point(data = dat_chl_countS,
+             aes(y = mean_chl_per_symb),
+             size = 4,
+             position = position_dodge(width = .6),
+             shape = 21,
+             fill = "white",
+             stroke = 1,
+             show.legend = F)+
+  geom_text(data = dat_chl_countS, 
+            aes(y = mean_chl_per_symb + se, label = group, group = site),
+            position = position_dodge(width = .6), 
+            col = "black",
+            vjust = -0.3
+            )+
+  labs( x = expression(" "),
+    y = expression("Chlorophyll per Symbiodiniaceae"), 
+       title = "Chlorophyll per Symbiodiniaceae:")+
+  scale_colour_manual(values = col_site, name = "Site")+
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+plot_chl_count
+```
