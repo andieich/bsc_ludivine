@@ -11,6 +11,9 @@ library(tidyverse)
 library(here)
 source(here("scripts/helper_functions.R")) # some helper functions to deal with sample IDs
 library(performance)
+library(emmeans)
+library(multcomp)
+library(patchwork)
 ```
 
 ## Chlorophyll
@@ -78,42 +81,6 @@ dat_chlS <- dat_chl %>%
 
 ```{r}
 
-col_site <- c("E2B" = "#009E73",
-              "Temae" = "#E69F00")
-
-dat_chl %>% 
-  ggplot(aes(x = site, col = site))+
-  geom_point(aes( y = chl_tot_per_cm2), 
-             position = position_jitterdodge(jitter.width = .2, 
-                                             dodge.width = .6),
-             alpha = .6)+
-  geom_errorbar(data = dat_chlS, 
-                aes(x = site,
-                    ymin = mean_chl_tot_per_cm2 - se,
-                    ymax = mean_chl_tot_per_cm2 + se),
-                position = position_dodge(width = .6),
-                width = .3,
-                show.legend = F)+
-  geom_point(data = dat_chlS, 
-             aes(x = site, 
-                 y = mean_chl_tot_per_cm2), 
-             size = 4,
-             position = position_dodge(width = .6), 
-             shape = 21, 
-             fill = "white", 
-             stroke = 1, 
-             show.legend = F)+
-  labs(x = "Site", 
-       y = expression("Chlorophyll in µg"~cm^-2), 
-       title = "Chlorophyll concentration")+
-  scale_colour_manual(values = col_site, name = "Site")+
-  theme_minimal()+
-  facet_wrap(~timepoint)+
-  theme(plot.title = element_text(hjust = 0.5))
-```
-
-```{r}
-
 dat_chl_mod  <-  dat_chl %>% 
   group_by(sample_id, site, size)  %>% 
   summarise(chl_tot_per_cm2 = mean(chl_tot_per_cm2))
@@ -160,11 +127,61 @@ dat_em_chl <- em_chl %>%
 
 dat_chlS <- left_join(dat_chlS,
                             dat_em_chl ,
-                            by = c("site", "timepoint"))
+                            by = c("site", "timepoint")) %>%
+  mutate(timepoint = factor(timepoint, levels = c("before", "during", "after")))
 ```
 
 ```{r}
 dat_chlS
+```
+
+```{r}
+
+col_site <- c("E2B" = "#009E73",
+              "Temae" = "#E69F00")
+
+plot_chl_bda <- dat_chl %>% 
+  ggplot(aes(x = timepoint, col = site))+
+  geom_point(aes( y = chl_tot_per_cm2), 
+             position = position_jitterdodge(jitter.width = .2, 
+                                             dodge.width = .6),
+             alpha = .6)+
+  geom_errorbar(data = dat_chlS, 
+                aes(x = timepoint,
+                    ymin = mean_chl_tot_per_cm2 - se,
+                    ymax = mean_chl_tot_per_cm2 + se),
+                position = position_dodge(width = .6),
+                width = .3,
+                show.legend = F)+
+  geom_line(data = dat_chlS, 
+             aes(y = mean_chl_tot_per_cm2,
+                 group = site),
+            position = position_dodge(width = .6), 
+             show.legend = F)+
+  geom_point(data = dat_chlS, 
+             aes(x = timepoint, 
+                 y = mean_chl_tot_per_cm2), 
+             size = 4,
+             position = position_dodge(width = .6), 
+             shape = 21, 
+             fill = "white", 
+             stroke = 1, 
+             show.legend = F)+
+    geom_text(data = dat_chlS, 
+            aes(y = mean_chl_tot_per_cm2 + se, label = group, group = site),
+            position = position_dodge(width = .6), 
+            col = "black",
+            vjust = -0.3
+            )+
+  labs(x = NULL, 
+       tag = "A)",
+       y = expression("Chlorophyll in µg/"*cm^2), 
+       title = "Chlorophyll concentration:")+
+  scale_colour_manual(values = col_site, name = "Site")+
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+plot_chl_bda
 ```
 
 ## Counts
@@ -195,7 +212,7 @@ dat_count <- dat_count %>%
 
 ```{r}
 dat_count %>% 
-  select(timepoint, sample_id, site, depth, spec, size) %>% 
+  dplyr::select(timepoint, sample_id, site, depth, spec, size) %>% 
   distinct() %>% #remove duplicates
   group_by(timepoint, site, depth, spec, size) %>% 
   summarise(n = n())
@@ -227,22 +244,70 @@ dat_countS <- dat_count %>%
 ```
 
 ```{r}
+# extra data frame for model to exclude E2B after
+dat_count_model <- dat_count %>% 
+  mutate(site_timepoint = paste(site, timepoint, sep ="_")) %>% 
+  filter(site_timepoint != "E2B_after", 
+         count_per_cm2 > 0)
 
-dat_count %>% 
-  ggplot(aes(x = site, col = site,))+
+
+# One linear model (normal distribution) and a generalised linear model with Gamma distribution
+m_count1 <- lm(count_per_cm2 ~ site_timepoint, 
+                   data = dat_count_model)
+
+m_count2 <- glm(count_per_cm2 ~ site_timepoint, 
+                   data = dat_count_model,
+                   family = "Gamma")
+
+#compare models
+AIC(m_count1, m_count2) # m_chl_count1 slightly lower
+
+compare_performance(m_count1, m_count2, rank = TRUE)#chose m_count1
+
+
+summary(m_count1)#Adjusted R-squared:  0.491 
+plot(m_count1)
+```
+
+```{r}
+anova(m_count1)
+```
+
+```{r}
+em_count <- emmeans(m_count1, pairwise ~ site_timepoint)
+
+dat_em_count <- em_count %>% 
+  cld(Letters = LETTERS) %>% 
+  mutate(group = trimws(.group)) %>% 
+  dplyr::select(site_timepoint, group) %>% 
+  separate(site_timepoint, into = c("site", "timepoint"))
+
+dat_countS <- left_join(dat_countS,
+                            dat_em_count,
+                            by = c("site", "timepoint"))
+```
+
+```{r}
+plot_count_bda <- dat_count %>% 
+  ggplot(aes(x = timepoint, col = site))+
   geom_point(aes( y = count_per_cm2), 
              position = position_jitterdodge(jitter.width = .2, 
                                              dodge.width = .6),
              alpha = .6)+
   geom_errorbar(data = dat_countS, 
-                aes(x = site,
+                aes(x = timepoint,
                     ymin = mean_count_per_cm2 - se,
                     ymax = mean_count_per_cm2 + se),
                 position = position_dodge(width = .6),
                 width = .3,
                 show.legend = F)+
+  geom_line(data = dat_countS, 
+             aes(y = mean_count_per_cm2,
+                 group = site),
+             position = position_dodge(width = .6), 
+             show.legend = F)+
   geom_point(data = dat_countS, 
-             aes(x = site, 
+             aes(x = timepoint, 
                  y = mean_count_per_cm2), 
              size = 4,
              position = position_dodge(width = .6), 
@@ -250,13 +315,21 @@ dat_count %>%
              fill = "white", 
              stroke = 1, 
              show.legend = F)+
-  labs(x = "Site", 
+      geom_text(data = dat_countS,
+            aes(y = mean_count_per_cm2 + se, label = group, group = site),
+            position = position_dodge(width = .6),
+            col = "black",
+            vjust = -0.3
+            )+
+  labs(x = NULL, 
+       tag = "B)",
        y = expression("Number of Symbiodiniaceae per"~cm^2), 
-       title = "Number of Symbiodiniaceae")+
+       title = "Number of Symbiodiniaceae:")+
   scale_colour_manual(values = col_site, name = "Site")+
   theme_minimal()+
-  facet_wrap(~timepoint)+
   theme(plot.title = element_text(hjust = 0.5))
+
+plot_count_bda
 ```
 
 ## Chlorophyll per Symbiont
@@ -298,14 +371,6 @@ dat_chl_countS <- dat_chl_count %>%
 ```
 
 ```{r}
-
-col_site <- c("E2B" = "#009E73",
-              "Temae" = "#E69F00")
-
-
-```
-
-```{r}
 # extra data frame for model to exclude E2B after
 dat_chl_count_model <- dat_chl_count %>% 
   mutate(site_timepoint = paste(site, timepoint, sep ="_")) %>% 
@@ -337,8 +402,6 @@ anova(m_chl_count1)
 ```
 
 ```{r}
-library(emmeans)
-library(multcomp)
 
 em_chl_count <- emmeans(m_chl_count1, pairwise ~ site_timepoint)
 
@@ -389,8 +452,9 @@ plot_chl_count<- dat_chl_count %>%
             col = "black",
             vjust = -0.3
             )+
-  labs( x = expression(" "),
-    y = expression("Chlorophyll per Symbiodiniaceae"), 
+  labs(x = NULL, 
+       tag = "C)",
+    y = expression("Chlorophyll in µg per Symbiodiniaceae"), 
        title = "Chlorophyll per Symbiodiniaceae:")+
   scale_colour_manual(values = col_site, name = "Site")+
   theme_minimal()+
@@ -399,3 +463,12 @@ plot_chl_count<- dat_chl_count %>%
 plot_chl_count
 ```
 
+```{r}
+plots_bda <- plot_chl_bda / plot_count_bda / plot_chl_count + plot_layout(guides = "collect")
+plots_bda
+```
+
+```{r}
+ggsave(filename = "bda.pdf",plot = plots_bda, path = here("plots"), 
+       width = 18, height = 25, units = "cm")
+```
